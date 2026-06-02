@@ -131,7 +131,7 @@ def save_model(model, optimizer, val_loss, model_config, step, output_dir):
 
 def init_wandb(train_cfg, model_cfg, model, dataset_name, tokenizer):
     run = wandb.init(
-        project="nanoGBT2",
+        project="belliGPT",
         job_type="train",
         notes=train_cfg.notes,
         config={

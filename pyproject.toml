@@ -1,5 +1,5 @@
 [project]
-name = "nanoGBT"
+name = "belliGPT"
 version = "0.1.0"
 description = "Language Modeling experiments on 19th-Century Romanesco sonnets."
 readme = "README.md"

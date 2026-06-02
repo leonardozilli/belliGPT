@@ -132,7 +132,7 @@ class Scraper:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update(
-            {"User-Agent": "Mozilla/5.0 (compatible; nanoGBT/1.0; +for-research)"}
+            {"User-Agent": "Mozilla/5.0 (compatible; belliGPT/1.0; +for-research)"}
         )
 
     def fetch(self, url: str, sleep: float = 0.5) -> str:

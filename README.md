@@ -1,4 +1,4 @@
-# nanoGBT: Gioachino Belli Transformer
+# belliGPT
 
 This repository hosts experiments in training custom transformer models to generate poetry in the style of Giuseppe Gioachino Belli.
 

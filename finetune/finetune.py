@@ -4,7 +4,11 @@
 # In[1]:
 
 
-get_ipython().run_cell_magic('capture', '', 'import os, re\nif "COLAB_" not in "".join(os.environ.keys()):\n    !pip install unsloth  # Do this in local & cloud setups\nelse:\n    import torch; v = re.match(r\'[\\d]{1,}\\.[\\d]{1,}\', str(torch.__version__)).group(0)\n    xformers = \'xformers==\' + {\'2.10\':\'0.0.34\',\'2.9\':\'0.0.33.post1\',\'2.8\':\'0.0.32.post2\'}.get(v, "0.0.34")\n    !pip install sentencepiece protobuf "datasets==4.3.0" "huggingface_hub>=0.34.0" hf_transfer\n    !pip install --no-deps unsloth_zoo bitsandbytes accelerate {xformers} peft trl triton unsloth\n!pip install transformers==4.56.2\n!pip install --no-deps trl==0.22.2\n')
+get_ipython().run_cell_magic(
+    "capture",
+    "",
+    "import os, re\nif \"COLAB_\" not in \"\".join(os.environ.keys()):\n    !pip install unsloth  # Do this in local & cloud setups\nelse:\n    import torch; v = re.match(r'[\\d]{1,}\\.[\\d]{1,}', str(torch.__version__)).group(0)\n    xformers = 'xformers==' + {'2.10':'0.0.34','2.9':'0.0.33.post1','2.8':'0.0.32.post2'}.get(v, \"0.0.34\")\n    !pip install sentencepiece protobuf \"datasets==4.3.0\" \"huggingface_hub>=0.34.0\" hf_transfer\n    !pip install --no-deps unsloth_zoo bitsandbytes accelerate {xformers} peft trl triton unsloth\n!pip install transformers==4.56.2\n!pip install --no-deps trl==0.22.2\n",
+)
 
 
 # In[ ]:
@@ -19,22 +23,22 @@ from trl import SFTConfig, SFTTrainer
 from unsloth import FastLanguageModel, is_bfloat16_supported
 from unsloth.chat_templates import get_chat_template
 
-
-drive.mount('/content/drive')
+drive.mount("/content/drive")
 
 
 # In[23]:
 
 
 from huggingface_hub import login
+
 login(new_session=False)
 
 
 # In[24]:
 
 
-DATA_PATH = "/content/drive/MyDrive/nanogbt/train_rhyme_suffix.jsonl"
-OUTPUT_DIR = "/content/drive/MyDrive/nanogbt/outputs/"
+DATA_PATH = "/content/drive/MyDrive/belligpt/train_rhyme_suffix.jsonl"
+OUTPUT_DIR = "/content/drive/MyDrive/belligpt/outputs/"
 
 MODEL_NAME = "sapienzanlp/Minerva-3B-base-v1.0"
 
@@ -47,10 +51,10 @@ dtype = None
 load_in_4bit = True
 
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = MODEL_NAME,
-    max_seq_length = max_seq_length,
-    dtype = dtype,
-    load_in_4bit = load_in_4bit,
+    model_name=MODEL_NAME,
+    max_seq_length=max_seq_length,
+    dtype=dtype,
+    load_in_4bit=load_in_4bit,
 )
 
 tokenizer = get_chat_template(
@@ -75,16 +79,23 @@ print(tokens)
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 16,
-    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                      "gate_proj", "up_proj", "down_proj",],
-    lora_alpha = 32,
-    lora_dropout = 0,
-    bias = "none",
-    use_gradient_checkpointing = "unsloth",
-    random_state = 3407,
-    use_rslora = False,
-    loftq_config = None,
+    r=16,
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
+    ],
+    lora_alpha=32,
+    lora_dropout=0,
+    bias="none",
+    use_gradient_checkpointing="unsloth",
+    random_state=3407,
+    use_rslora=False,
+    loftq_config=None,
 )
 
 
@@ -108,6 +119,7 @@ def formatting_prompts_func(examples):
     return {
         "text": texts,
     }
+
 
 dataset = dataset.map(formatting_prompts_func, batched=True)
 
@@ -152,7 +164,7 @@ trainer = SFTTrainer(
         logging_steps=1,
         optim="adamw_8bit",
         weight_decay=0.01,
-        output_dir=OUTPUT_DIR
+        output_dir=OUTPUT_DIR,
     ),
 )
 
@@ -168,6 +180,9 @@ trainer.train()
 # In[ ]:
 
 
-model.save_pretrained(f"{OUTPUT_DIR}/rhyme_suffix/{MODEL_NAME.split("/")[-1]}_belli_adapter")
-tokenizer.save_pretrained(f"{OUTPUT_DIR}/rhyme_suffix/{MODEL_NAME.split("/")[-1]}_belli_adapter")
-
+model.save_pretrained(
+    f"{OUTPUT_DIR}/rhyme_suffix/{MODEL_NAME.split('/')[-1]}_belli_adapter"
+)
+tokenizer.save_pretrained(
+    f"{OUTPUT_DIR}/rhyme_suffix/{MODEL_NAME.split('/')[-1]}_belli_adapter"
+)
