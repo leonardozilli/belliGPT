@@ -1,10 +1,11 @@
 import re
 
-VOWELS = r"aeiouàáèéìíïîüòóôùúăēōyAEIOUÀÁÈÉÌÍÏÎÜÒÓÔÙÚĂĒŌY’'"
-ACCENTED_VOWELS = r"àáèéìíïòóôùúÀÁÈÉÌÍÏÒÓÔÙÚ"
-STRONG_VOWELS = r"aeoàáèéòóăēōAEOÀÁÈÉÒÓĂĒŌ"
+from common.rhyme_utils import split_rhyme_metadata
+
+VOWELS = r"aeiouàáâèéêìíïîüòóôùúûăēōyAEIOUÀÁÂÈÉÊÌÍÏÎÜÒÓÔÙÚÛĂĒŌY’'"
+ACCENTED_VOWELS = r"àáâèéêìíïîòóôùúûÀÁÂÈÉÊÌÍÏÎÒÓÔÙÚÛ"
+STRONG_VOWELS = r"aeoàáâèéêòóôăēōAEOÀÁÂÈÉÊÒÓÔĂĒŌ"
 CONSONANTS = r"bcdfghjlmnpqrstvwxzBCDFGHJLMNPQRSTVWXZ"
-RHYME_LINE_RE = re.compile(r"^(<RHYME_[A-Z]>)\s+([^|]+?)\s+\|\s+(.*)$")
 
 INDIVISIBLE_CLUSTERS = r"ch|gh|gn|gl|sc|[pbcftvdg][rl]|s[bcdfghjlmnpqrtvwxz]+"
 
@@ -59,55 +60,79 @@ def _build_syllables(line: str) -> list[str]:
     return syllables
 
 
-def _should_merge_syllables(current_syl: str, next_syl: str) -> bool:
-    """Return True when elision or sinalefe allows merging two adjacent syllables."""
+def _merge_kind(current_syl: str, next_syl: str) -> str | None:
+    """Check if elision or sinalefe allows merging two adjacent syllables."""
     curr_clean = re.sub(r"[^A-Za-zÀ-Ōà-ō\’\']", "", current_syl)
     next_clean = re.sub(r"[^A-Za-zÀ-Ōà-ō\’\']", "", next_syl)
 
     if not curr_clean or not next_clean:
-        return False
+        return None
 
-    # 1. check if the token ends in an apostrophe
-    curr_ends_apostrophe = bool(re.search(r"[\’\']$", curr_clean))
+    next_starts_vowel = bool(re.search(rf"^[hH]?[{VOWELS}]", next_clean, re.IGNORECASE))
+    if not next_starts_vowel:
+        return None
 
-    # 2. check for a vowel at the end of the current token or start of the next.
-    # treat 'h' as a vowel here.
+    # apostrophe junction -> obligatory elision
+    if re.search(r"[\’\']$", curr_clean):
+        return "elision"
+
+    # a vowel ending + an actual word boundary (trailing space/punct) -> sinalefe
     curr_ends_vowel = bool(
         re.search(rf"[{VOWELS}\’\'][hH]?$", curr_clean, re.IGNORECASE)
     )
-    next_starts_vowel = bool(re.search(rf"^[hH]?[{VOWELS}]", next_clean, re.IGNORECASE))
-
-    # 3. check if there's a space or punctuation before the next word
     is_word_boundary = bool(re.search(r"[^A-Za-zÀ-Ōà-ō\’\']$", current_syl))
+    if curr_ends_vowel and is_word_boundary:
+        return "sinalefe"
 
-    is_elision = curr_ends_apostrophe and next_starts_vowel
+    return None
 
-    is_sinalefe = curr_ends_vowel and next_starts_vowel and is_word_boundary
 
-    return is_elision or is_sinalefe
+def _should_merge_syllables(current_syl: str, next_syl: str) -> bool:
+    """Return True when elision or sinalefe allows merging two adjacent syllables."""
+    return _merge_kind(current_syl, next_syl) is not None
 
 
 def _merge_syllables(syllables: list[str]) -> list[str]:
-    """Merge syllables to respect elision/sinalefe rules."""
     merged_syllables = []
     i = 0
 
     while i < len(syllables):
         current_syl = syllables[i]
 
-        while i < len(syllables) - 1:
-            next_syl = syllables[i + 1]
-            # merge if elision or sinalefe
-            if _should_merge_syllables(current_syl, next_syl):
-                current_syl += next_syl
-                i += 1
-            else:
-                break
+        if i < len(syllables) - 1 and _should_merge_syllables(
+            current_syl, syllables[i + 1]
+        ):
+            current_syl += syllables[i + 1]
+            i += 1
 
         merged_syllables.append(current_syl)
         i += 1
 
     return merged_syllables
+
+
+def _block_is_syllable(block: str) -> bool:
+    """A base block counts as a syllable iff it carries a letter."""
+    return any(c.isalpha() for c in block)
+
+
+def count_syllable_range(line: str) -> tuple[int, int]:
+    """Syllable count for a verse line, as a (min, max) range."""
+    blocks = _build_syllables(line)
+    flags = [_block_is_syllable(b) for b in blocks]
+
+    max_count = sum(flags)
+    optional = 0
+    for i in range(len(blocks) - 1):
+        if not (flags[i] and flags[i + 1]):
+            continue
+        kind = _merge_kind(blocks[i], blocks[i + 1])
+        if kind == "elision":
+            max_count -= 1
+        elif kind == "sinalefe":
+            optional += 1
+
+    return max_count - optional, max_count
 
 
 def _split_and_move_whitespace(syllables: list[str]) -> list[str]:
@@ -151,17 +176,12 @@ def syllabify_line(line: str) -> list[str]:
 
 
 def _extract_rhyme_metadata(line: str) -> tuple[list[str] | None, str | None]:
-    """Parse a line for prepended rhyme metadata (special tokens, rhyme tags, rhyme suffixes).
-    Returns a tuple of (metadata_tokens, verse).
-    """
-    match = RHYME_LINE_RE.match(line)
-    if not match:
+    """Parse a line for prepended rhyme metadata (rhyme tag, rhyme suffix)."""
+    tag, suffix, verse = split_rhyme_metadata(line)
+    if tag is None or suffix is None:
         return None, None
 
-    special_token = match.group(1)
-    rhyme_suffix = match.group(2).strip()
-    verse = match.group(3)
-    metadata_tokens = [special_token, rhyme_suffix, "|"]
+    metadata_tokens = [tag, suffix, "|"]
     return metadata_tokens, verse
 
 
@@ -185,7 +205,7 @@ def syllabify_text(text: str) -> list[str]:
 
         metadata_tokens, verse = _extract_rhyme_metadata(stripped_line)
 
-        if metadata_tokens is not None:
+        if metadata_tokens is not None and verse is not None:
             tokens.extend(metadata_tokens)
             tokens.extend(syllabify_line(verse))
         else:
