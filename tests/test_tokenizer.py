@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest
 
 from common import tokenizer as tokenizer_module
-from common.tokenizer import CharTokenizer, UnigramTokenizer, load_tokenizer
+from common.tokenizer import (
+    CharTokenizer,
+    SyllableTokenizer,
+    UnigramTokenizer,
+    load_tokenizer,
+)
 
 
 def test_char_tokenizer_encode_decode_with_special_tokens(tmp_path):
@@ -151,6 +156,60 @@ def test_char_tokenizer_decode_preserves_newlines_when_stripping_rhyme_prefix(
     encoded = tokenizer.encode(text)
 
     assert tokenizer.decode(encoded, skip_special_tokens=True) == "Prima\n\nSeconda"
+
+
+def test_syllable_tokenizer_decode_strips_rhyme_prefix(tmp_path):
+    pieces = [
+        "<RHYME_A>",
+        "<RHYME_B>",
+        "<STANZA>",
+        "ella",
+        "à",
+        "|",
+        "Te",
+        " lo",
+        "che",
+        " annà",
+        "\n",
+    ]
+    itos = {str(i): p for i, p in enumerate(pieces)}
+    stoi = {p: i for i, p in enumerate(pieces)}
+    vocab = {
+        "special_tokens": {
+            "RHYME_A": "<RHYME_A>",
+            "RHYME_B": "<RHYME_B>",
+            "SEP": "<STANZA>",
+        },
+        "itos": itos,
+        "stoi": stoi,
+    }
+    vocab_path = tmp_path / "vocab.json"
+    vocab_path.write_text(json.dumps(vocab), encoding="utf-8")
+
+    tokenizer = SyllableTokenizer(str(vocab_path))
+    # "<RHYME_A>ella|Te lo\n<RHYME_B>à|che annà\n<STANZA>"
+    ids = [
+        stoi[p]
+        for p in [
+            "<RHYME_A>",
+            "ella",
+            "|",
+            "Te",
+            " lo",
+            "\n",
+            "<RHYME_B>",
+            "à",
+            "|",
+            "che",
+            " annà",
+            "\n",
+            "<STANZA>",
+        ]
+    ]
+
+    assert tokenizer.decode(ids, skip_special_tokens=True) == (
+        "Te lo\nche annà\n<STANZA>"
+    )
 
 
 def test_unigram_flatten_ids_handles_nested_and_flat_lists():

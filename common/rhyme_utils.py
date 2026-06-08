@@ -4,6 +4,20 @@ import unicodedata
 ACCENTED_VOWELS = "àèéìíòóùú"
 PLAIN_VOWELS = "aeiou"
 
+_RHYME_TAG = r"(?:<RHYME_[A-Z]>|[Ⓐ-Ⓩ])"
+RHYME_METADATA_RE = re.compile(
+    rf"^\s*(?P<tag>{_RHYME_TAG})?\s*"
+    rf"(?:(?P<suffix>[^\s|]+)\s*\|\s*)?"
+    rf"(?P<verse>.*)$"
+)
+
+
+def split_rhyme_metadata(line: str) -> tuple[str | None, str | None, str]:
+    """Split a single line into (tag, suffix, verse)"""
+    match = RHYME_METADATA_RE.match(line)
+    assert match is not None
+    return match.group("tag"), match.group("suffix"), match.group("verse")
+
 
 def normalize_word(word: str) -> str:
     """Remove accents, punctuation, and lowercase the word."""
@@ -47,3 +61,7 @@ def extract_rhyme_suffix(word: str) -> str:
     start = vowel_indices[-2] if len(vowel_indices) >= 2 else vowel_indices[0]
 
     return normalized[start:]
+
+
+def rhyme_key(word: str) -> str:
+    return normalize_word(extract_rhyme_suffix(word))

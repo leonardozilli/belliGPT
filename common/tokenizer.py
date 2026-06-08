@@ -1,14 +1,24 @@
 import json
-import re
 from collections.abc import Iterable
 from pathlib import Path
 
 from tokenizers import Tokenizer
 
+from common.rhyme_utils import split_rhyme_metadata
 from syllable.syllabify import syllabify_text
 
-RHYME_MARKING_RE_CHAR = re.compile(r"(?m)^[Ⓐ-Ⓩ][ \t]+[^|\n]*\|[ \t]*")
-RHYME_MARKING_RE_SYLLABLE = re.compile(r"(?m)^<RHYME_[A-Z]>\w+\|\s*")
+
+def _strip_rhyme_prefix(text: str) -> str:
+    "Remove the leading ``<tag> <suffix> |`` rhyme prefix from each line."
+    out = []
+    for line in text.split("\n"):
+        tag, suffix, verse = split_rhyme_metadata(line)
+        if tag is not None and suffix is not None:
+            out.append(verse)
+        else:
+            out.append(line)
+    return "\n".join(out)
+
 
 SPECIAL_TOKENS = {
     "BOS": "<SONNET>",
@@ -57,7 +67,7 @@ class CharTokenizer:
         text = "".join(self.itos[i] for i in batch)
 
         if skip_special_tokens:
-            text = RHYME_MARKING_RE_CHAR.sub("", text)
+            text = _strip_rhyme_prefix(text)
             tokens_to_strip = {
                 token for name, token in self.special_tokens.items() if name != "SEP"
             }
@@ -102,7 +112,7 @@ class SyllableTokenizer:
         text = "".join(self.itos[i] for i in batch)
 
         if skip_special_tokens:
-            text = RHYME_MARKING_RE_SYLLABLE.sub("", text)
+            text = _strip_rhyme_prefix(text)
             tokens_to_strip = {
                 token for name, token in self.special_tokens.items() if name != "SEP"
             }

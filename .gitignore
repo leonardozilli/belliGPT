@@ -17,6 +17,7 @@ logs/
 models/
 outputs*/
 multirun/
+notebooks/
 
 *.txt
 *.bin
