@@ -1,0 +1,18 @@
+defaults:
+  model: minerva3b
+  dataset: sonnets_rhymes
+  env: auto
+
+max_seq_length: 512
+load_in_4bit: true
+
+lora_r: 16
+lora_alpha: 32
+
+learning_rate: 2.0e-4
+embedding_learning_rate: 2.0e-4
+num_train_epochs: 8
+warmup_steps: 14
+eval_steps: 10
+early_stopping_patience: 3
+seed: 42

@@ -21,8 +21,10 @@ dependencies = [
     "sentencepiece>=0.2.1",
     "unsloth>=2026.3.7",
     "huggingface-hub==0.34.0",
+    "matplotlib>=3.10.9",
+    "types-pyyaml>=6.0.12.20260518",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["common*", "char*", "subw*", "syllable*"]
+include = ["common*", "char*", "subw*", "syllable*", "finetune*"]

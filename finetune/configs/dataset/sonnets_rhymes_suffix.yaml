@@ -1,0 +1,5 @@
+# sonnets with rhyme markers AND rhyme suffix prepended (e.g. '[A] <suffix> | <verse>')
+dataset_name: sonnets_rhymes_suffix
+train_file: finetune_train.jsonl
+eval_file: finetune_eval.jsonl
+add_struct_tokens: false

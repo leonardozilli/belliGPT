@@ -1,0 +1,5 @@
+# plain sonnets (no rhyme markers)
+dataset_name: sonnets
+train_file: finetune_train.jsonl
+eval_file: finetune_eval.jsonl
+add_struct_tokens: false
