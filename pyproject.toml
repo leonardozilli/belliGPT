@@ -23,6 +23,7 @@ dependencies = [
     "huggingface-hub==0.34.0",
     "matplotlib>=3.10.9",
     "types-pyyaml>=6.0.12.20260518",
+    "llama-cpp-python>=0.3.28",
 ]
 
 [tool.setuptools.packages.find]

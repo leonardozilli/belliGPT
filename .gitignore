@@ -28,3 +28,6 @@ notebooks/
 *.model
 *.safetensors
 *.vocab
+*.gguf
+
+.envrc

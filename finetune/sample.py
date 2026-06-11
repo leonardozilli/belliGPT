@@ -43,10 +43,28 @@ def _for_structure_eval(text: str) -> str:
     help="Adapter directory (overrides --config/--model/--dataset).",
 )
 @click.option(
+    "--backend",
+    type=click.Choice(["unsloth", "llamacpp"]),
+    default="unsloth",
+    show_default=True,
+    help="Inference backend.",
+)
+@click.option(
+    "--gguf",
+    "gguf_path",
+    default=None,
+    help="[llamacpp] GGUF base path.",
+)
+@click.option(
+    "--lora-gguf",
+    "lora_gguf",
+    default=None,
+    help="[llamacpp] GGUF LoRA path; pass '' to run the base with no adapter.",
+)
+@click.option(
     "--title",
     default=None,
-    help="Sonnet title to prompt with. Omit for free generation (model "
-    "invents the title); pass '' for SONNET-only.",
+    help="Sonnet title to prompt with. Omit for free generation (model invents the title); pass '' for sonnet-only.",
 )
 @click.option("-n", "--num-samples", default=3, show_default=True)
 @click.option("-t", "--temperature", default=0.8, show_default=True)
@@ -73,8 +91,7 @@ def _for_structure_eval(text: str) -> str:
     "--train-corpus",
     type=click.Path(exists=True),
     default=None,
-    help="Training corpus (.txt file or dir) for the overlap / memorization check "
-    "(implies --eval).",
+    help="Training corpus (.txt file or dir) for the overlap/memorization check (implies --eval).",
 )
 @click.option("--overlap-n", default=4, show_default=True, help="Overlap n-gram size.")
 @click.option(
@@ -88,6 +105,9 @@ def main(
     model_group,
     dataset_group,
     adapter_dir,
+    backend,
+    gguf_path,
+    lora_gguf,
     title,
     num_samples,
     temperature,
@@ -101,16 +121,24 @@ def main(
     overlap_n,
     json_out,
 ):
-    if adapter_dir is None:
-        cfg = FinetuneConfig.compose(
-            base=config_path,
-            group_overrides={"model": model_group, "dataset": dataset_group},
-        )
-        adapter_dir = _gen.adapter_dir_for(cfg)
-    click.echo(f"[infer] loading adapter: {adapter_dir}")
+    if backend == "llamacpp":
+        from finetune import llamacpp as _llm
 
-    model, tokenizer = _gen.load_adapter(adapter_dir)
-    prompt = _gen.build_prompt(title)
+        gguf = gguf_path or _llm.DEFAULT_GGUF
+        lora = _llm.DEFAULT_LORA if lora_gguf is None else (lora_gguf or None)
+        click.echo(f"[sample] backend=llamacpp gguf={gguf} lora={lora or '(none)'}")
+        engine = _llm.load_engine(gguf, lora)
+        prompt = _gen.build_prompt(title)
+    else:
+        if adapter_dir is None:
+            cfg = FinetuneConfig.compose(
+                base=config_path,
+                group_overrides={"model": model_group, "dataset": dataset_group},
+            )
+            adapter_dir = _gen.adapter_dir_for(cfg)
+        click.echo(f"[sample] backend=unsloth loading adapter: {adapter_dir}")
+        model, tokenizer = _gen.load_adapter(adapter_dir)
+        prompt = _gen.build_prompt(title)
 
     do_score = do_eval or train_corpus is not None
     corpus_ngrams = None
@@ -121,24 +149,35 @@ def main(
         if train_corpus is not None:
             corpus_ngrams = load_corpus_ngrams(train_corpus, overlap_n)
             click.echo(
-                f"[infer] loaded {len(corpus_ngrams)} reference {overlap_n}-grams "
+                f"[sample] loaded {len(corpus_ngrams)} reference {overlap_n}-grams "
                 f"from {train_corpus}"
             )
 
     samples = []
     for i in range(num_samples):
         click.echo(f"\n{'=' * 60}\nsample {i + 1}/{num_samples}\n{'=' * 60}")
-        text = _gen.generate(
-            model,
-            tokenizer,
-            prompt,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            stream=False,
-            strip_tags=strip_tags,
-        )
+        if backend == "llamacpp":
+            text = _llm.generate(
+                engine,
+                prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                strip_tags=strip_tags,
+            )
+        else:
+            text = _gen.generate(
+                model,
+                tokenizer,
+                prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                stream=False,
+                strip_tags=strip_tags,
+            )
         click.echo(text)
         if do_score:
             eval_text = _for_structure_eval(text)
