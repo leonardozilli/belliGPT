@@ -6,7 +6,9 @@ Different tokenization and training strategies are implemented:
 1. [Character-level](./char/): a GPT-style transformer trained using character-level tokenization.
 2. [Syllable-level](./syllable/): the same GPT-style architecture, trained using a custom syllable tokenizer.
 3. [Subword-level](./subw/): the same GPT-style architecture, trained using custom subword (BPE, Unigram) tokenizers.
-4. [LLM Fine-Tuning](./finetune/): Larger pre-trained language models fine-tuned on the sonnets using LoRA adapters.
+4. LLM Fine-Tuning: larger pre-trained language models adapted for the sonnet generation task:
+   - [Plain LoRA fine-tuning](./finetune/)
+   - [Constrained decoding](./finetune_constrained/): inference-time decoding forces adherence to sonnet structure and rhyme schemes.
 
 ---
 

@@ -24,8 +24,13 @@ dependencies = [
     "matplotlib>=3.10.9",
     "types-pyyaml>=6.0.12.20260518",
     "llama-cpp-python>=0.3.28",
+    "gguf>=0.19.0",
+    "sentence-transformers>=3.0.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["common*", "char*", "subw*", "syllable*", "finetune*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
